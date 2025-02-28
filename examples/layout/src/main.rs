@@ -18,33 +18,44 @@ pub fn main() -> iced::Result {
         .run()
 }
 
+// ElmアーキテクチャのStateに当たる構造体。
 #[derive(Default, Debug)]
 struct Layout {
-    example: Example,
+    // 現在のページ。
+    page: Page,
+    // 各widgetがどういう形をしているか分かりやすくするための枠を表示するか否かのステータス。
     explain: bool,
+    // アプリのテーマカラー。
     theme: Theme,
 }
 
+// ElmアーキテクチャのMessageに当たる構造体。
 #[derive(Debug, Clone)]
 enum Message {
+    // 次のページへ。
     Next,
+    // 前のページへ。
     Previous,
+    // trueならばLayoutのexplainをオン。falseならばオフ。
     ExplainToggled(bool),
+    // テーマカラーの選択。
     ThemeSelected(Theme),
 }
 
 impl Layout {
+    // main関数でapplicationに渡してタイトルを表示するために用いられる。
     fn title(&self) -> String {
-        format!("{} - Layout - Iced", self.example.title)
+        format!("{} - Layout - Iced", self.page.title)
     }
 
+    // ElmアーキテクチャのUpdate Logicに当たる構造体。
     fn update(&mut self, message: Message) {
         match message {
             Message::Next => {
-                self.example = self.example.next();
+                self.page = self.page.next();
             }
             Message::Previous => {
-                self.example = self.example.previous();
+                self.page = self.page.previous();
             }
             Message::ExplainToggled(explain) => {
                 self.explain = explain;
@@ -55,21 +66,21 @@ impl Layout {
         }
     }
 
+    // キーボードの左右ボタンで次のページや前のページに遷移できる。
     fn subscription(&self) -> Subscription<Message> {
         use keyboard::key;
 
         keyboard::on_key_release(|key, _modifiers| match key {
-            keyboard::Key::Named(key::Named::ArrowLeft) => {
-                Some(Message::Previous)
-            }
+            keyboard::Key::Named(key::Named::ArrowLeft) => Some(Message::Previous),
             keyboard::Key::Named(key::Named::ArrowRight) => Some(Message::Next),
             _ => None,
         })
     }
 
+    // ElmアーキテクチャのView Logicに当たる構造体。
     fn view(&self) -> Element<Message> {
         let header = row![
-            text(self.example.title).size(20).font(Font::MONOSPACE),
+            text(self.page.title).size(20).font(Font::MONOSPACE),
             horizontal_space(),
             checkbox("Explain", self.explain)
                 .on_toggle(Message::ExplainToggled),
@@ -79,9 +90,9 @@ impl Layout {
         .align_y(Center);
 
         let example = center(if self.explain {
-            self.example.view().explain(color!(0x0000ff))
+            self.page.view().explain(color!(0x0000ff))
         } else {
-            self.example.view()
+            self.page.view()
         })
         .style(|theme| {
             let palette = theme.extended_palette();
@@ -92,14 +103,14 @@ impl Layout {
         .padding(4);
 
         let controls = row([
-            (!self.example.is_first()).then_some(
+            (!self.page.is_first()).then_some(
                 button("← Previous")
                     .padding([5, 10])
                     .on_press(Message::Previous)
                     .into(),
             ),
             Some(horizontal_space().into()),
-            (!self.example.is_last()).then_some(
+            (!self.page.is_last()).then_some(
                 button("Next →")
                     .padding([5, 10])
                     .on_press(Message::Next)
@@ -120,86 +131,123 @@ impl Layout {
     }
 }
 
+// ページの構造体。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Example {
+struct Page {
     title: &'static str,
+
+    // 具体的な表示内容を表すElementを返す関数をメンバとして持っている。
     view: fn() -> Element<'static, Message>,
 }
 
-impl Example {
-    const LIST: &'static [Self] = &[
-        Self {
-            title: "Centered",
-            view: centered,
-        },
-        Self {
-            title: "Column",
-            view: column_,
-        },
-        Self {
-            title: "Row",
-            view: row_,
-        },
-        Self {
-            title: "Space",
-            view: space,
-        },
-        Self {
-            title: "Application",
-            view: application,
-        },
-        Self {
-            title: "Quotes",
-            view: quotes,
-        },
-        Self {
-            title: "Pinning",
-            view: pinning,
-        },
-    ];
-
+impl Page {
+    // このページが最初のページか？
     fn is_first(self) -> bool {
-        Self::LIST.first() == Some(&self)
+        AllPage::is_first(&self)
     }
 
+    // このページが最後のページか？
     fn is_last(self) -> bool {
-        Self::LIST.last() == Some(&self)
+        AllPage::is_last(&self)
     }
 
-    fn previous(self) -> Self {
-        let Some(index) =
-            Self::LIST.iter().position(|&example| example == self)
-        else {
-            return self;
-        };
-
-        Self::LIST
-            .get(index.saturating_sub(1))
-            .copied()
-            .unwrap_or(self)
+    // 一つ前のページを検索する。
+    fn previous(self) -> Page {
+        AllPage::previous(&self)
     }
 
-    fn next(self) -> Self {
-        let Some(index) =
-            Self::LIST.iter().position(|&example| example == self)
-        else {
-            return self;
-        };
-
-        Self::LIST.get(index + 1).copied().unwrap_or(self)
+    // 一つ後のページを検索する。
+    fn next(self) -> Page {
+        AllPage::next(&self)
     }
 
+    // viewメンバをメソッドとしてラッピングしている
     fn view(&self) -> Element<Message> {
         (self.view)()
     }
 }
 
-impl Default for Example {
+impl Default for Page {
     fn default() -> Self {
-        Self::LIST[0]
+        AllPage::LIST[0]
     }
 }
 
+// ページの全体に関する情報を扱う構造体。
+struct AllPage {}
+
+impl AllPage {
+    // このアプリで表示可能な全てのページを前から順に並べたリスト。
+    const LIST: &'static [Page] = &[
+        Page {
+            title: "Centered",
+            view: centered,
+        },
+        Page {
+            title: "Column",
+            view: column_,  // おそらくicedのcolumnマクロと名前が被るからアンダーバーがついてる
+        },
+        Page {
+            title: "Row",
+            view: row_,     // おそらくicedのrowマクロと名前が被るからアンダーバーがついてる
+        },
+        Page {
+            title: "Space",
+            view: space,
+        },
+        Page {
+            title: "Application",
+            view: application,
+        },
+        Page {
+            title: "Quotes",
+            view: quotes,
+        },
+        Page {
+            title: "Pinning",
+            view: pinning,
+        },
+        
+    ];
+
+    // 現在のページが最初のページか？
+    fn is_first(page: &Page) -> bool {
+        AllPage::LIST.first() == Some(&page)
+    }
+
+    // 現在のページが最後のページか？
+    fn is_last(page: &Page) -> bool {
+        AllPage::LIST.last() == Some(&page)
+    }
+
+    // 一つ前のページを検索する。
+    fn previous(page: &Page) -> Page {
+        let Some(index) =
+            AllPage::LIST.iter().position(|&example| example == *page)
+        else {
+            return *page;
+        };
+
+        AllPage::LIST
+            .get(index.saturating_sub(1))
+            .copied()
+            .unwrap_or(*page)
+    }
+
+    // 一つ後のページを検索する。
+    fn next(page: &Page) -> Page {
+        let Some(index) =
+            AllPage::LIST.iter().position(|&example| example == *page)
+        else {
+            return *page;
+        };
+
+        AllPage::LIST.get(index + 1).copied().unwrap_or(*page)
+    }
+
+}
+
+// 以下、各Pageのviewメンバに入れる関数
 fn centered<'a>() -> Element<'a, Message> {
     center(text("I am centered!").size(50)).into()
 }
