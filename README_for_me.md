@@ -2,10 +2,8 @@
 export WAYLAND_DISPLAY= && export DISPLAY=:0
 を~/.bash_rcに入れておくとコンパイルできる。  
 
-sudo apt install libx11-dev cmake libfreetype-dev libexpat1-dev libfontconfig1-dev mesa-vulkan-drivers  
-した上で(教科書先生ありがとう)  
+DEPENDENCIES.mdに従って依存を解決し、
 export WGPU_BACKEND=vulkan  
-することで(ChatGPT先生ありがとう)Waylandのまま解決！  
-export WGPU_BACKEND=vulkanが必要かは保留  
+することでWaylandのまま解決(ChatGPT先生ありがとう)  
   
-おそらくicedに限らない話として、core dumpとかの原因不明のバグはgdbとかを使うとどこでバグが発生したか特定できるらしい。とはいえ使い方はChatGPT先生に聞くしかなさそう。  
+おそらくicedに限らない話として、core dumpとかの原因不明のバグはgdbとかを使うとどこでバグが発生したか特定できるらしい。とはいえ使い方はChatGPT先生に聞きつつ使っていく  
